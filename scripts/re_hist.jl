@@ -13,7 +13,7 @@ using Optim
 using LineSearches
 Random.seed!(233)
 
-region = "demo/"
+region = "BayArea/"
 folder = "../local/" * region * "readin_data/"
 config = JSON.parsefile(folder * "config.json")["inversion"]
 rfile = open(folder * "range.txt","r")
@@ -26,7 +26,7 @@ alleve = CSV.read(folder * "sta_eve/alleve.csv",DataFrame); numeve = size(alleve
 uobs = h5read(folder * "for_P/uobs_p.h5","matrix")
 qua = h5read(folder * "for_P/qua_p.h5","matrix")
 
-vel0 = h5read(folder * "inv_P_0.005/post/post_100.h5","data")
+vel0 = h5read(folder * "inv_P_"*string(config["lambda_p"])*"/post/post_20.h5","data")
 uvar = PyObject[]
 for i = 1:numsta
     ix = allsta.x[i]; ixu = convert(Int64,ceil(ix)); ixd = convert(Int64,floor(ix))
@@ -84,7 +84,9 @@ for i = 1:numsta
     for j = 1:numeve
         if uobs[i,j] != -1
             push!(sta_delt, uobs[i,j]-caltime[i,j])
-            push!(delt,uobs[i,j]-caltime[i,j])
+            if abs(uobs[i,j]-caltime[i,j]) < 1.5
+                push!(delt,uobs[i,j]-caltime[i,j])
+            end
             global sum_res += qua[i,j] * (uobs[i,j]-caltime[i,j])^2
             if (uobs[i,j]-caltime[i,j]) > 0
                 global numbig += 1
@@ -108,7 +110,7 @@ print(numbig," ",numsmall,'\n')
 
 folder = folder * "inv_P_" * string(config["lambda_p"]) * "/final/"
 if !isdir(folder) mkdir(folder) end
-
+#=
 file = open(folder * "sta_ratio_s.txt","w")
 for i = 1:numsta
     println(file, sta_ratio[i])
@@ -119,9 +121,10 @@ for i = 1:numsta
     println(file, sta_median[i])
 end
 close(file)
-
+=#
 plt.figure(); plt.hist(delt,bins=60,edgecolor="royalblue",color="skyblue");
-plt.xlabel("Residual"); plt.ylabel("Counts")
-plt.xlim(-3,3); plt.ylim(0,3000)
-plt.savefig(folder * "histogram_p.png")
+plt.xlabel("Residual"); plt.ylabel("Counts"); plt.text(-1.5,2240,"(b)",fontsize=18)
+plt.xlim(-1.5,1.5); plt.ylim(0,2400)
+plt.tight_layout()
+plt.savefig(folder * "histogram_p_20.png")
 @show sum_res

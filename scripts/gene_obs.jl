@@ -9,7 +9,7 @@ using Dates
 using PyPlot
 using JSON
 
-region = "demo/"
+region = "BayArea/"
 folder = "../local/" * region * "readin_data/"
 config = JSON.parsefile(folder * "config.json")["gene_obs"]
 prange = config["prange"]; srange=config["srange"]
@@ -25,8 +25,10 @@ alleve = CSV.read(folder * "sta_eve/alleve.csv",DataFrame); numeve = size(alleve
 file = open(folder * "sta_eve/stations.json", "r"); dic_sta = JSON.parse(file); close(file)
 eveid = h5read(folder * "sta_eve/eveid.h5","data")
 
-vel_p = h5read(folder * "velocity/GIL7_vel0_p.h5","data") .* config["p_times"]
-vel_s = h5read(folder * "velocity/GIL7_vel0_s.h5","data") .* config["s_times"]
+#vel_p = h5read(folder * "velocity/GIL7_vel0_p.h5","data") .* config["p_times"]
+#vel_s = h5read(folder * "velocity/GIL7_vel0_s.h5","data") .* config["s_times"]
+vel_p = h5read(folder * "velocity/vel2_p.h5","data")
+vel_s = h5read(folder * "velocity/vel2_s.h5","data")
 if isfile(folder * "velocity/vel0_p.h5")
     rm(folder * "velocity/vel0_p.h5")
     rm(folder * "velocity/vel0_s.h5")
@@ -122,8 +124,8 @@ uobs_p = -ones(numsta,numeve); uobs_s = -ones(numsta,numeve)
 qua_p = ones(numsta,numeve); qua_s = ones(numsta,numeve)
 for i = 1:numeve
     local evetime = events[eveid[i],2]; local id = events[eveid[i],1]
-    #local file = "../local/"*region*"seismic_data/phasenet/picks/" * id * ".csv"
-    local file = "../local/"*region*"seismic_data/phasenet/picks_phasenet/" * id * ".csv"
+    local file = "../local/"*region*"seismic_data/phasenet/picks/" * id * ".csv"
+    #local file = "../local/"*region*"seismic_data/phasenet/picks_phasenet/" * id * ".csv"
     local picks = CSV.read(file,DataFrame)
     local numpick = size(picks,1)
 
@@ -133,17 +135,17 @@ for i = 1:numeve
             continue   
         end
 
-        local delta_militime = picks[j,3] - parse(DateTime,evetime[1:23])
+        local delta_militime = picks[j,4] - parse(DateTime,evetime[1:23])
         local delta_time = delta_militime.value/1000
-        if picks[j,5] == "P" && picks[j,4] > config["p_requirement"]
+        if picks[j,6] == "P" && picks[j,5] > config["p_requirement"]
             if uobs_p[sta_idx,i] == -1 || abs(delta_time-scaltime_p[sta_idx,i]) < abs(uobs_p[sta_idx,i] - scaltime_p[sta_idx,i])
                 uobs_p[sta_idx,i] = delta_time
-                qua_p[sta_idx,i] = picks[j,4]
+                qua_p[sta_idx,i] = picks[j,5]
             end
-        elseif picks[j,5] == "S" && picks[j,4] > config["s_requirement"]
+        elseif picks[j,6] == "S" && picks[j,5] > config["s_requirement"]
             if uobs_s[sta_idx,i] == -1 || abs(delta_time-scaltime_s[sta_idx,i]) < abs(uobs_s[sta_idx,i] - scaltime_s[sta_idx,i])
                 uobs_s[sta_idx,i] = delta_time
-                qua_s[sta_idx,i] = picks[j,4]
+                qua_s[sta_idx,i] = picks[j,5]
             end
         end
     end
@@ -160,8 +162,8 @@ sta_record_s = zeros(numsta,2); eve_record_s = zeros(numeve,2);sum_s = 0
 for i = 1:numeve
     for j = 1:numsta
         if uobs_p[j,i] != -1
-            push!(delt_p,uobs_p[j,i]-scaltime_p[j,i])
             if abs(uobs_p[j,i] - scaltime_p[j,i]) < prange 
+                push!(delt_p,uobs_p[j,i]-scaltime_p[j,i])
                 if (uobs_p[j,i]-scaltime_p[j,i])>0
                     global numbig_p += 1
                     sta_record_p[j,1] += 1; eve_record_p[i,1] += 1
@@ -176,8 +178,8 @@ for i = 1:numeve
             end
         end
         if uobs_s[j,i] != -1 
-            push!(delt_s,uobs_s[j,i]-scaltime_s[j,i])
             if abs(uobs_s[j,i] - scaltime_s[j,i]) < srange 
+                push!(delt_s,uobs_s[j,i]-scaltime_s[j,i])
                 if (uobs_s[j,i]-scaltime_s[j,i])>0
                     global numbig_s += 1
                     sta_record_s[j,1] += 1; eve_record_s[i,1] += 1
@@ -207,11 +209,15 @@ h5write(folder * "for_S/qua_s.h5","matrix",qua_s)
 
 print(numbig_p," ",numsmall_p,'\n',numbig_s," ",numsmall_s,'\n')
 print(sum_p," ",sum_s,'\n')
-plt.figure(); plt.hist(delt_p,bins=config["bins_p"],edgecolor="royalblue",color="skyblue");
-plt.xlabel("Residual"); plt.ylabel("Frequency"); plt.xlim(-prange,prange)
+plt.figure(); plt.hist(delt_p,bins=60,edgecolor="royalblue",color="skyblue");
+plt.xlabel("Residual"); plt.ylabel("Counts");plt.text(-1.5,2240,"(a)",fontsize=18)
+plt.xlim(-prange,prange); plt.ylim(0,2400)
+plt.tight_layout()
 plt.savefig(folder * "for_P/hist_p_0.png")
-plt.figure(); plt.hist(delt_s,bins=config["bins_s"],edgecolor="royalblue",color="skyblue"); 
-plt.xlabel("Residual"); plt.ylabel("Frequency"); plt.xlim(-srange,srange)
+plt.figure(); plt.hist(delt_s,bins=60,edgecolor="royalblue",color="skyblue"); 
+plt.xlabel("Residual"); plt.ylabel("Counts");plt.text(-3,1400,"(d)",fontsize=18)
+plt.xlim(-srange,srange); plt.ylim(0,1500)
+plt.tight_layout()
 plt.savefig(folder * "for_S/hist_s_0.png")
 #
 
@@ -351,14 +357,23 @@ if !isdir(folder * "for_P/coverage/")
     mkdir(folder * "for_S/coverage/")
 end
 for i = 1:min(25,l)
-    figure(figsize=(config["cov_width"],config["cov_length"]))
-    pcolormesh(transpose(cover_p[:,:,i]),cmap="magma_r")
-    colorbar()
-    savefig(folder * "for_P/coverage/layer_$i.png")
+    fig = plt.figure(figsize=(config["cov_width"],config["cov_length"]))
+    ax = fig.add_subplot(111)
+    c = ax.pcolormesh(transpose(cover_p[:,:,i]),cmap="magma_r",vmin = 0, vmax = 2.5)
+    cbar = fig.colorbar(c, ax=ax, ticks=[0,1,2])
+    cbar.ax.set_yticklabels(["1", "10", "100"])
+    title(string((i-2)*2)*" km",fontsize = "xx-large")
+    plt.tight_layout()
+    savefig(folder * "for_P/coverage/layer_$i.png", pad_inches = 0)
     close()
-    figure(figsize=(config["cov_width"],config["cov_length"]))
-    pcolormesh(transpose(cover_s[:,:,i]),cmap="magma_r")
-    colorbar()
-    savefig(folder * "for_S/coverage/layer_$i.png")
+    
+    fig = plt.figure(figsize=(config["cov_width"],config["cov_length"]))
+    ax = fig.add_subplot(111)
+    c = ax.pcolormesh(transpose(cover_s[:,:,i]),cmap="magma_r", vmin = 0, vmax = 2.5)
+    cbar = fig.colorbar(c, ax=ax, ticks=[0,1,2])
+    cbar.ax.set_yticklabels(["1", "10", "100"])
+    title(string((i-2)*2)*" km",fontsize = "xx-large")
+    plt.tight_layout()
+    savefig(folder * "for_S/coverage/layer_$i.png", pad_inches = 0)
     close()
 end

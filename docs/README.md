@@ -28,7 +28,8 @@
         "Optim",
         "JSON",
         "Clustering",
-        "Distances"
+        "Distances",
+        "Colors"
     ]
     Pkg.add(pkgs_to_install)
     ```
