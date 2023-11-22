@@ -7,7 +7,7 @@ using DataFrames
 using HDF5
 using JSON
 
-region = "demo/"
+region = "BayArea/"
 folder = "../local/" * region * "readin_data/"
 config = JSON.parsefile("../local/" * region * "readin_data/config.json")["gene_check"]
 
@@ -23,13 +23,13 @@ vel0_s = h5read(folder * "velocity/vel0_s.h5","data")
 uobs_p = h5read(folder * "for_P/uobs_p.h5","matrix")
 uobs_s = h5read(folder * "for_S/uobs_s.h5","matrix")
 
-len = config["len"]
+len1 = config["len_hor"]; len2 = config["len_ver"]
 for i = 0:m-1
     for j = 0:n-1
         for k = 0:l-1
-            ii = (i-i%len)/len
-            jj = (j-j%len)/len
-            kk = (k-k%len)/len
+            ii = (i-i%len1)/len1
+            jj = (j-j%len1)/len1
+            kk = (k-k%len2)/len2
             if (ii+jj+kk)%2 ==0
                 vel0_p[i+1,j+1,k+1] = vel0_p[i+1,j+1,k+1] + config["vel_change"]
                 vel0_s[i+1,j+1,k+1] = vel0_s[i+1,j+1,k+1] + config["vel_change"]
@@ -41,12 +41,12 @@ for i = 0:m-1
     end
 end
 fvel_p = 1 ./ vel0_p; fvel_s = 1 ./ vel0_s
-if isfile(folder * "/velocity/vel_check_p_" * string(len) * ".h5")
-    rm(folder * "velocity/vel_check_p_" * string(len) * ".h5")
-    rm(folder * "velocity/vel_check_s_" * string(len) * ".h5")
+if isfile(folder * "/velocity/vel_check_p_" * string(len2) * ".h5")
+    rm(folder * "velocity/vel_check_p_" * string(len2) * ".h5")
+    rm(folder * "velocity/vel_check_s_" * string(len2) * ".h5")
 end
-h5write(folder * "velocity/vel_check_p_" * string(len) * ".h5","data",vel0_p)
-h5write(folder * "velocity/vel_check_s_" * string(len) * ".h5","data",vel0_s)
+h5write(folder * "velocity/vel_check_p_" * string(len2) * ".h5","data",vel0_p)
+h5write(folder * "velocity/vel_check_s_" * string(len2) * ".h5","data",vel0_s)
 
 u_p = PyObject[]; u_s = PyObject[]
 for i = 1:numsta
@@ -148,9 +148,9 @@ for i = 1:numeve
         ucheck_s[j,i] = caltime_s[j,i]    
     end
 end
-if isfile(folder * "for_P/ucheck_p_" * string(len) * ".h5")
-    rm(folder * "for_P/ucheck_p_" * string(len) * ".h5")
-    rm(folder * "for_S/ucheck_s_" * string(len) * ".h5")
+if isfile(folder * "for_P/ucheck_p_" * string(len2) * ".h5")
+    rm(folder * "for_P/ucheck_p_" * string(len2) * ".h5")
+    rm(folder * "for_S/ucheck_s_" * string(len2) * ".h5")
 end
-h5write(folder * "for_P/ucheck_p_" * string(len) * ".h5","matrix",ucheck_p)
-h5write(folder * "for_S/ucheck_s_" * string(len) * ".h5","matrix",ucheck_s)
+h5write(folder * "for_P/ucheck_p_" * string(len2) * ".h5","matrix",ucheck_p)
+h5write(folder * "for_S/ucheck_s_" * string(len2) * ".h5","matrix",ucheck_s)

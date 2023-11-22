@@ -33,7 +33,8 @@ config = Dict(
         "cov_length" => 8,
     ),
     "gene_check" => Dict(
-        "len" => 10,
+        "len_hor" => 10,
+        "len_ver" => 2,
         "vel_change" => 0.8,
     ),
     "inversion" => Dict(
@@ -98,7 +99,8 @@ config = Dict(
         "cov_length" => 5,
     ),
     "gene_check" => Dict(
-        "len" => 10,
+        "len_hor" => 10,
+        "len_ver" => 2,
         "vel_change" => 0.8,
     ),
     "inversion" => Dict(

@@ -7,7 +7,7 @@ using Clustering
 using Distances
 using JSON
 
-region = "demo/"
+region = "BayArea/"
 config = JSON.parsefile("../local/" * region * "readin_data/config.json")["sta_eve"]
 h = config["h"]; theta = config["theta"]
 folder = "../local/" * region * "seismic_data/"
@@ -47,7 +47,7 @@ allsta = DataFrame(x = [], y = [], z = [], lon = [], lat = [])
 alleve = DataFrame(x = [], y = [], z = [], lon = [], lat = [], picks = [])
 staget = zeros(numsta); eveid = Vector{Int}()
 for i = 1:numeve
-    local file1 = folder * "phasenet/picks_phasenet/" * events[i,1] * ".csv"
+    local file1 = folder * "phasenet/picks/" * events[i,1] * ".csv"
     if !isfile(file1) 
         continue 
     end
@@ -55,10 +55,10 @@ for i = 1:numeve
     local eveget = 0; local stajudge = zeros(numsta)
     local picks = CSV.read(file1,DataFrame); local numpick = size(picks,1)
     for j = 1:numpick
-        if picks[j,4] < config["p_requirement"] && picks[j,5] == "P"
+        if picks[j,5] < config["p_requirement"] && picks[j,6] == "P"
             continue
         end
-        if picks[j,4] < config["s_requirement"] && picks[j,5] == "S"
+        if picks[j,5] < config["s_requirement"] && picks[j,6] == "S"
             continue
         end
         sta_id = dic_sta[picks[j,1]]
@@ -186,7 +186,7 @@ for i = 1:numsta_
     push!(sta_data,[allsta.x[i],allsta.y[i],allsta.z[i]])
 end
 dist_matrix = pairwise(Euclidean(), sta_data)
-eps = 1.414; min_pts = 1
+eps = config["sta_eps"]; min_pts = 1
 result = dbscan(dist_matrix, eps, min_pts)
 clusters = assignments(result)
 cluster_points = Dict{Int, Vector{Int}}()

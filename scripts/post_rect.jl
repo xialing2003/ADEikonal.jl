@@ -10,7 +10,7 @@ using Colors
 using JSON
 using PyCall
 
-region = "demo/"
+region = "BayArea/"
 folder = "../local/" * region * "readin_data/"
 config = JSON.parsefile("../local/" * region * "readin_data/config.json")["post_rect"]
 
@@ -19,13 +19,17 @@ m = parse(Int,readline(rfile)); n = parse(Int,readline(rfile))
 l = parse(Int,readline(rfile)); h = parse(Float64,readline(rfile))
 dx = parse(Int,readline(rfile)); dy = parse(Int,readline(rfile)); dz = parse(Int,readline(rfile))
 
-lambda = config["lambda_p"]
+lambda = config["lambda_s"]
 vel0 = h5read(folder * "velocity/vel0_p.h5","data")
-folder = folder * "inv_P_"*string(lambda)
+v = h5read(folder * "velocity/vel_check_p_10.h5","data")
+#folder = folder * "inv_S_"*string(lambda)
+folder = folder * "check_P_10/"
 
 sess = Session(); init(sess)
 if !isdir(folder * "/plot/")
     mkdir(folder * "/plot/")
+end
+if !isdir(folder * "/post/")
     mkdir(folder * "/post/")
 end
 for ite =10:10:100
@@ -58,3 +62,14 @@ for ite =10:10:100
         h5write(folder * "/post/post_$ite.h5","data",vel)
     end
 end
+
+figure(figsize = (config["width"],config["length"]))
+for i = 1:16
+    subplot(4,4,i)
+    #pcolormesh(plotf2,cmap = "Spectral",vmin=minimum(plotf2),vmax=maximum(plotf2))
+    pcolormesh(transpose(v[:,:,i]), cmap = "seismic",vmin=vel0[1,1,i]-1,vmax=vel0[1,1,i]+1)
+
+    title("layer "*string(i))
+    colorbar()
+end
+savefig(folder * "real.png")

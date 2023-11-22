@@ -18,7 +18,7 @@ mpi_init()
 rank = mpi_rank()
 nproc = mpi_size()
 
-region = "demo/"
+region = "BayArea/"
 folder = "../local/" * region * "readin_data/"
 config = JSON.parsefile("../local/" * region * "readin_data/config.json")["inversion"]
 
@@ -30,7 +30,7 @@ dx = parse(Int,readline(rfile)); dy = parse(Int,readline(rfile)); dz = parse(Int
 allsta = CSV.read(folder * "sta_eve/allsta.csv",DataFrame); numsta = size(allsta,1)
 alleve = CSV.read(folder * "sta_eve/alleve.csv",DataFrame); numeve = size(alleve,1)
 vel0 = h5read(folder * "velocity/vel0_p.h5","data")
-uobs = h5read(folder * "for_P/uobs_p.h5","matrix")
+uobs = h5read(folder * "for_P/ucheck_p_10.h5","matrix")
 qua = h5read(folder * "for_P/qua_p.h5","matrix")
 
 allsta = allsta[rank+1:nproc:numsta,:]
@@ -123,7 +123,8 @@ sess = Session(); init(sess)
 loss = mpi_sum(loss)
 
 options = Optim.Options(iterations = config["iterations"])
-loc = folder * "inv_P_"*string(config["lambda_p"])*"/"
+#loc = folder * "check_P_"*string(config["lambda_p"])*"/"
+loc = folder * "check_P_10/"
 result = ADTomo.mpi_optimize(sess, loss, method="LBFGS", options = options, 
     loc = loc*"intermediate/", steps = config["steps"])
 if mpi_rank()==0
