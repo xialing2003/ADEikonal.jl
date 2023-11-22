@@ -20,10 +20,10 @@ l = parse(Int,readline(rfile)); h = parse(Float64,readline(rfile))
 dx = parse(Int,readline(rfile)); dy = parse(Int,readline(rfile)); dz = parse(Int,readline(rfile))
 
 lambda = config["lambda_s"]
-vel0 = h5read(folder * "velocity/vel0_p.h5","data")
-v = h5read(folder * "velocity/vel_check_p_10.h5","data")
+vel0 = h5read(folder * "velocity/vel0_s.h5","data")
+v = h5read(folder * "velocity/vel_check_s_10.h5","data")
 #folder = folder * "inv_S_"*string(lambda)
-folder = folder * "check_P_10/"
+folder = folder * "check_S_10/"
 
 sess = Session(); init(sess)
 if !isdir(folder * "/plot/")
@@ -50,7 +50,7 @@ for ite =10:10:100
         subplot(4,4,i)
         
         #pcolormesh(plotf2,cmap = "Spectral",vmin=minimum(plotf2),vmax=maximum(plotf2))
-        pcolormesh(transpose(vel[:,:,i]), cmap = "seismic",vmin=vel[1,1,i]-1,vmax=vel[1,1,i]+1)
+        pcolormesh(transpose(vel[:,:,i]), cmap = "seismic_r",vmin=vel[1,1,i]-1,vmax=vel[1,1,i]+1)
         #pcolormesh(plotf2,cmap = "seismic", vmin = vref*0.7, vmax = vref*1.3)
 
         title("layer "*string(i))
