@@ -73,3 +73,14 @@ for i = 1:16
     colorbar()
 end
 savefig(folder * "real.png")
+
+folder = "/home/lingxia/ADTomo.jl/local/BayArea/readin_data/check_S_10/output_tit"
+width = 4; length = 8
+for i = 1:16
+    figure(figsize=(width,length))
+    pcolormesh(transpose(v[:,:,i]), cmap = "seismic_r", vmin = v[1,1,i]-1,vmax = v[1,1,i]+1)
+    title(string((i-2)*2)*" km",fontsize = "xx-large")
+    colorbar()
+    plt.tight_layout()
+    savefig(folder * "/layer_$i.png")
+end
