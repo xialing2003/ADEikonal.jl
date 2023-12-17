@@ -45,7 +45,7 @@ qua_s = qua_s[rank+1:nproc:numsta,:]
 numsta = size(allsta,1)
 #@show rank, nproc, numsta
 
-var_change = Variable(zero(vel0)); pvs_ = Variable(pvs_old)
+var_change = Variable(zero(vel0)); pvs_ = Variable(ones(Float64,m,n,l)*pvs_old)
 vari = vcat(tf.reshape(var_change, (-1,)), tf.reshape(pvs_, (-1,)))
 varn = mpi_bcast(vari)
 fvar_ = tf.reshape(varn[1:prod(size(var_change))], size(var_change))

@@ -15,7 +15,11 @@ reset_default_graph()
 
 mpi_init()
 m = 40; n = 30
-fvar = mpi_bcast(Variable(ones(n, m))) ; pvs = mpi_bcast(Variable(2.))
+fvar_ = Variable(ones(n,m)); pvs_ = Variable(2.)
+vari = vcat(tf.reshape(fvar_, (-1,)), tf.reshape(pvs_, (-1,)))
+varn = mpi_bcast(vari)
+fvar = tf.reshape(varn[1:prod(size(fvar_))], size(fvar_))
+pvs = tf.reshape(varn[prod(size(fvar_))+1:end], size(pvs_))
 
 rank = mpi_rank()
 nproc = mpi_size()
