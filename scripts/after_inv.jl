@@ -27,9 +27,9 @@ qua_p = h5read(folder * "for_P/qua_p.h5","matrix")
 uobs_s = h5read(folder * "for_S/uobs_s.h5","matrix")
 qua_s = h5read(folder * "for_S/qua_s.h5","matrix")
 
-foler = ""
-vp = h5read(folder * "","data")
-pvs = h5read(folder * "","data")
+folder = folder * "joint_1.75_0.03_0.01/sig_1_2/"
+vp = h5read(folder * "Vp.h5","data")
+pvs = h5read(folder * "pvs.h5","data")
 uvar_p = PyObject[]; uvar_s = PyObject[]
 for i = 1:numsta
     ix = allsta.x[i]; ixu = convert(Int64,ceil(ix)); ixd = convert(Int64,floor(ix))
@@ -74,7 +74,7 @@ for i = 1:numsta
             tx11 = ucal_p[i][x1,y1,z1]; tx12 = ucal_p[i][x1,y1,z2]
             tx21 = ucal_p[i][x1,y2,z1]; tx22 = ucal_p[i][x1,y2,z2]
         else
-            tx11 = (x2-jx)*ucal_P[i][x1,y1,z1] + (jx-x1)*ucal_p[i][x2,y1,z1]
+            tx11 = (x2-jx)*ucal_p[i][x1,y1,z1] + (jx-x1)*ucal_p[i][x2,y1,z1]
             tx12 = (x2-jx)*ucal_p[i][x1,y1,z2] + (jx-x1)*ucal_p[i][x2,y1,z2]
             tx21 = (x2-jx)*ucal_p[i][x1,y2,z1] + (jx-x1)*ucal_p[i][x2,y2,z1]
             tx22 = (x2-jx)*ucal_p[i][x1,y2,z2] + (jx-x1)*ucal_p[i][x2,y2,z2]
@@ -146,8 +146,8 @@ filter = tf.constant(gauss_wei,shape=(sh1,sh1,sv1,1,1),dtype=tf.float64)
 # regularization P
 var = tf.reshape(vp,(m,n,l))
 var_ = tf.reshape(vp,(1,m,n,l,1))
-cvar = tf.nn.conv3d(var_, filter, strides=(1,1,1,1,1), padding="Valid")
-n_var = tf.rrshape(cvar, (m-sh1+1,n-sh1+1,l-sh2+1))
+cvar = tf.nn.conv3d(var_, filter, strides=(1,1,1,1,1), padding="VALID")
+n_var = tf.reshape(cvar, (m-sh1+1,n-sh1+1,l-sv1+1))
 
 reg_p = sum(abs(var[sh2+1:m-sh2,sh2+1:n-sh2,sv2+1:l-sv2]-n_var))
 @show run(sess, reg_p)
@@ -155,16 +155,16 @@ reg_p = sum(abs(var[sh2+1:m-sh2,sh2+1:n-sh2,sv2+1:l-sv2]-n_var))
 vs = vp ./ pvs
 var = tf.reshape(vs,(m,n,l))
 var_ = tf.reshape(vs,(1,m,n,l,1))
-cvar = tf.nn.conv3d(var_, filter, strides=(1,1,1,1,1), padding="Valid")
-n_var = tf.rrshape(cvar, (m-sh1+1,n-sh1+1,l-sh2+1))
+cvar = tf.nn.conv3d(var_, filter, strides=(1,1,1,1,1), padding="VALID")
+n_var = tf.reshape(cvar, (m-sh1+1,n-sh1+1,l-sv1+1))
 
 reg_s = sum(abs(var[sh2+1:m-sh2,sh2+1:n-sh2,sv2+1:l-sv2]-n_var))
 @show run(sess, reg_s)
 # regularization pvs
 var = tf.reshape(pvs,(m,n,l))
 var_ = tf.reshape(pvs,(1,m,n,l,1))
-cvar = tf.nn.conv3d(var_, filter, strides=(1,1,1,1,1), padding="Valid")
-n_var = tf.rrshape(cvar, (m-sh1+1,n-sh1+1,l-sh2+1))
+cvar = tf.nn.conv3d(var_, filter, strides=(1,1,1,1,1), padding="VALID")
+n_var = tf.reshape(cvar, (m-sh1+1,n-sh1+1,l-sv1+1))
 
 reg_pvs = sum(abs(var[sh2+1:m-sh2,sh2+1:n-sh2,sv2+1:l-sv2]-n_var))
 @show run(sess, reg_pvs)
