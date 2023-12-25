@@ -63,17 +63,6 @@ for ite =10:10:100
     end
 end
 
-figure(figsize = (config["width"],config["length"]))
-for i = 1:16
-    subplot(4,4,i)
-    #pcolormesh(plotf2,cmap = "Spectral",vmin=minimum(plotf2),vmax=maximum(plotf2))
-    pcolormesh(transpose(v[:,:,i]), cmap = "seismic",vmin=vel0[1,1,i]-1,vmax=vel0[1,1,i]+1)
-
-    title("layer "*string(i))
-    colorbar()
-end
-savefig(folder * "real.png")
-
 folder = "/home/lingxia/ADTomo.jl/local/BayArea/readin_data/check_S_10/output_tit"
 width = 4; length = 8
 for i = 1:16
@@ -84,3 +73,26 @@ for i = 1:16
     plt.tight_layout()
     savefig(folder * "/layer_$i.png")
 end
+
+using HDF5
+using PyPlot
+v = h5read("Vp.h5","data")
+figure(figsize=(20,30))
+for i = 1:16
+    subplot(4,4,i)
+    pcolormesh(transpose(v[:,:,i]),cmap="seismic_r")
+    title("layer "* string(i))
+    colorbar()
+end
+tight_layout()
+savefig("Vp.png")
+
+figure(figsize=(20,30))
+for i = 1:16
+    subplot(4,4,i)
+    pcolormesh(transpose(v[:,:,i]),cmap="seismic_r",vmax=v[1,1,i]+1,vmin=v[1,1,i]-1)
+    title("layer "* string(i))
+    colorbar()
+end
+tight_layout()
+savefig("Vp_c.png")
