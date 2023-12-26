@@ -18,7 +18,7 @@ mpi_init()
 rank = mpi_rank()
 nproc = mpi_size()
 
-region = "demo/"
+region = "BayArea/"
 folder = "../local/" * region * "readin_data/"
 config = JSON.parsefile("../local/" * region * "readin_data/config.json")["inversion"]
 
@@ -26,7 +26,7 @@ rfile = open(folder * "range.txt","r")
 m = parse(Int,readline(rfile)); n = parse(Int,readline(rfile))
 l = parse(Int,readline(rfile)); h = parse(Float64,readline(rfile))
 dx = parse(Int,readline(rfile)); dy = parse(Int,readline(rfile))
-dz = parse(Int,readline(rfile)); pvs_old = 1.7
+dz = parse(Int,readline(rfile)); pvs_old = 1.7583
 
 allsta = CSV.read(folder * "sta_eve/allsta.csv",DataFrame); numsta = size(allsta,1)
 alleve = CSV.read(folder * "sta_eve/alleve.csv",DataFrame); numeve = size(alleve,1)
@@ -43,14 +43,27 @@ qua_p = qua_p[rank+1:nproc:numsta,:]
 uobs_s = uobs_s[rank+1:nproc:numsta,:]
 qua_s = qua_s[rank+1:nproc:numsta,:]
 numsta = size(allsta,1)
-#@show rank, nproc, numsta
 
-var_change = Variable(zero(vel0)); pvs_ = Variable(ones(Float64,m,n,l)*pvs_old)
-vari = vcat(tf.reshape(var_change, (-1,)), tf.reshape(pvs_, (-1,)))
+# var_change = Variable(zero(vel0)); pvs_ = Variable(ones(Float64,m,n,l)*pvs_old)
+# vari = vcat(tf.reshape(var_change, (-1,)), tf.reshape(pvs_, (-1,)))
+# varn = mpi_bcast(vari)
+# fvar_ = tf.reshape(varn[1:prod(size(var_change))], size(var_change))
+# fvar = 2*sigmoid(fvar_)-1 + vel0
+# pvs = tf.reshape(varn[prod(size(var_change))+1:end], size(pvs_))
+
+var_change = Variable(zero(vel0)); pvs_change = Variable(zero(vel0))
+vari = vcat(tf.reshape(var_change, (-1,)), tf.reshape(pvs_change, (-1,)))
 varn = mpi_bcast(vari)
 fvar_ = tf.reshape(varn[1:prod(size(var_change))], size(var_change))
 fvar = 2*sigmoid(fvar_)-1 + vel0
-pvs = tf.reshape(varn[prod(size(var_change))+1:end], size(pvs_))
+pvs_ = tf.reshape(varn[prod(size(var_change))+1:end], size(pvs_change))
+pvs = 4*sigmoid(pvs_)-2 + ones(Float64,m,n,l)*pvs_old
+
+# var_change = Variable(vel0); pvs_ = Variable(ones(Float64,m,n,l)*pvs_old)
+# vari = vcat(tf.reshape(var_change, (-1,)), tf.reshape(pvs_, (-1,)))
+# varn = mpi_bcast(vari)
+# fvar = tf.reshape(varn[1:prod(size(var_change))], size(var_change))
+# pvs = tf.reshape(varn[prod(size(var_change))+1:end], size(pvs_))
 
 uvar_p = PyObject[]; uvar_s = PyObject[]
 for i = 1:numsta
@@ -149,8 +162,8 @@ for i = 1:numeve
     end
 end
 #
-sh1 = config["smooth_hor"]; sv1 = config["smooth_ver"]
-sh2 = convert(Int,(config["smooth_hor"]-1)/2); sv2 = convert(Int,(config["smooth_ver"]-1)/2);
+sh1 = config["smooth_hor"]; sh2 = convert(Int,(config["smooth_hor"]-1)/2)
+sv1 = config["smooth_ver"]; sv2 = convert(Int,(config["smooth_ver"]-1)/2)
 gauss_wei = ones(sh1,sh1,sv1) ./ (sh1*sh1*sv1)
 filter = tf.constant(gauss_wei,shape=(sh1,sh1,sv1,1,1),dtype=tf.float64)
 
@@ -162,18 +175,30 @@ vel = tf.reshape(o_vel,(1,m+sh1-1,n+sh1-1,l+sv1-1,1))
 
 cvel = tf.nn.conv3d(vel,filter,strides = (1,1,1,1,1),padding="VALID")
 n_vel = tf.reshape(cvel,(m,n,l))
+
+o_pvs = pvs
+o_pvs = tf.concat([o_pvs[m-sh2+1:m,:,:],o_pvs,o_pvs[1:sh2,:,:]],axis=0)
+o_pvs = tf.concat([o_pvs[:,n-sh2+1:n,:],o_pvs,o_pvs[:,1:sh2,:]],axis=1)
+o_pvs = tf.concat([o_pvs[:,:,l-sv2+1:l],o_pvs,o_pvs[:,:,1:sv2]],axis=2)
+vpvs = tf.reshape(o_pvs,(1,m+sh1-1,n+sh1-1,l+sv1-1,1))
+
+cpvs = tf.nn.conv3d(vpvs,filter,strides = (1,1,1,1,1),padding="VALID")
+n_pvs = tf.reshape(cpvs,(m,n,l))
 #
-loss = sum(sum_loss_time) + config["lambda_p"]*sum(abs(fvar - n_vel))
+
 sess = Session(); init(sess)
+loss = sum(sum_loss_time) + 0.03*sum(abs(fvar - n_vel)) + 0.1 * sum(abs(pvs - n_pvs))
 loss = mpi_sum(loss)
 
 options = Optim.Options(iterations = config["iterations"])
-loc = folder * "joint_"*string(config["lambda_p"])*"/"
+loc = folder * "joint_1_2/0.03_0.1/"
 result = ADTomo.mpi_optimize(sess, loss, method="LBFGS", options = options, 
-    loc = loc*"intermediate/", steps = 100000)
+    loc = loc*"intermediate/", steps = 1000000)
 if mpi_rank()==0
     @info [size(result[i]) for i = 1:length(result)]
     @info [length(result)]
     @info [result[2]]
+    h5write(loc * "final1.h5","data",result[1])
+    h5write(loc * "final2.h5","data",result[2])
 end
 mpi_finalize()
