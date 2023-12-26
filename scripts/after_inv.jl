@@ -27,7 +27,7 @@ qua_p = h5read(folder * "for_P/qua_p.h5","matrix")
 uobs_s = h5read(folder * "for_S/uobs_s.h5","matrix")
 qua_s = h5read(folder * "for_S/qua_s.h5","matrix")
 
-folder = folder * "joint_1.75_0.03_0.01/sig_1_2/"
+folder = folder * "joint_1_2/0.03_0.1/"
 vp = h5read(folder * "Vp.h5","data")
 pvs = h5read(folder * "pvs.h5","data")
 uvar_p = PyObject[]; uvar_s = PyObject[]
