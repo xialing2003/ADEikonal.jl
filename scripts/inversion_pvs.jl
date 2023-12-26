@@ -51,19 +51,24 @@ numsta = size(allsta,1)
 # fvar = 2*sigmoid(fvar_)-1 + vel0
 # pvs = tf.reshape(varn[prod(size(var_change))+1:end], size(pvs_))
 
-var_change = Variable(zero(vel0)); pvs_change = Variable(zero(vel0))
-vari = vcat(tf.reshape(var_change, (-1,)), tf.reshape(pvs_change, (-1,)))
-varn = mpi_bcast(vari)
-fvar_ = tf.reshape(varn[1:prod(size(var_change))], size(var_change))
-fvar = 2*sigmoid(fvar_)-1 + vel0
-pvs_ = tf.reshape(varn[prod(size(var_change))+1:end], size(pvs_change))
-pvs = 4*sigmoid(pvs_)-2 + ones(Float64,m,n,l)*pvs_old
+# var_change = Variable(zero(vel0)); pvs_change = Variable(zero(vel0))
+# vari = vcat(tf.reshape(var_change, (-1,)), tf.reshape(pvs_change, (-1,)))
+# varn = mpi_bcast(vari)
+# fvar_ = tf.reshape(varn[1:prod(size(var_change))], size(var_change))
+# fvar = 2*sigmoid(fvar_)-1 + vel0
+# pvs_ = tf.reshape(varn[prod(size(var_change))+1:end], size(pvs_change))
+# pvs = 4*sigmoid(pvs_)-2 + ones(Float64,m,n,l)*pvs_old
 
 # var_change = Variable(vel0); pvs_ = Variable(ones(Float64,m,n,l)*pvs_old)
 # vari = vcat(tf.reshape(var_change, (-1,)), tf.reshape(pvs_, (-1,)))
 # varn = mpi_bcast(vari)
 # fvar = tf.reshape(varn[1:prod(size(var_change))], size(var_change))
 # pvs = tf.reshape(varn[prod(size(var_change))+1:end], size(pvs_))
+
+vari_ = Variable(zeros(m,n,l*2))
+vari = mpi_bcast(vari_)
+fvar = 2*sigmoid(vari[:,:,1:l])-1 + vel0
+pvs = 4*sigmoid(vari[:,:,1+l:2*l])-2 + ones(Float64,m,n,l)*pvs_old
 
 uvar_p = PyObject[]; uvar_s = PyObject[]
 for i = 1:numsta
@@ -187,18 +192,16 @@ n_pvs = tf.reshape(cpvs,(m,n,l))
 #
 
 sess = Session(); init(sess)
-loss = sum(sum_loss_time) + 0.03*sum(abs(fvar - n_vel)) + 0.1 * sum(abs(pvs - n_pvs))
+loss = sum(sum_loss_time) + 0.03*sum(abs(fvar - n_vel)) + 0.01 * sum(abs(pvs - n_pvs))
 loss = mpi_sum(loss)
 
-options = Optim.Options(iterations = config["iterations"])
-loc = folder * "joint_1_2/0.03_0.1/"
+options = Optim.Options(iterations = 1000000)
+loc = folder * "joint_1_2/0.03_0.01_all/"
 result = ADTomo.mpi_optimize(sess, loss, method="LBFGS", options = options, 
-    loc = loc*"intermediate/", steps = 1000000)
+    loc = loc*"intermediate/", steps = 20)
 if mpi_rank()==0
     @info [size(result[i]) for i = 1:length(result)]
     @info [length(result)]
-    @info [result[2]]
-    h5write(loc * "final1.h5","data",result[1])
-    h5write(loc * "final2.h5","data",result[2])
+    h5write(loc * "final.h5","data",result[1])
 end
 mpi_finalize()
