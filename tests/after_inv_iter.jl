@@ -36,15 +36,20 @@ folder = folder * "joint_1_2/0.03_0.1_all/intermediate/"
 
 function gene_loss(i)
     sess = Session(); init(sess)
-    var = h5read(folder * "iter_$i.h5","data")
-    var = tf.reshape(var,(m,n,l*2)); fvar = run(sess,var)
-    vp_ = fvar[:,:,1:l]; pvs_ = fvar[:,:,l+1:2*l]
-    vp = ones(m,n,l); pvs = ones(m,n,l)
-    for i = 1:m
-        for j = 1:n
-            for k = 1:l
-                vp[i,j,k] = 2*sigmoid(vp_[i,j,k])-1 + vel0[i,j,k]
-                pvs[i,j,k] = 4*sigmoid(pvs_[i,j,k])-2 + 1.7583
+    if i == 0
+        vp = vel0
+        pvs = ones(m,n,l)*1.7583
+    else 
+        var = h5read(folder * "iter_$i.h5","data")
+        var = tf.reshape(var,(m,n,l*2)); fvar = run(sess,var)
+        vp_ = fvar[:,:,1:l]; pvs_ = fvar[:,:,l+1:2*l]
+        vp = ones(m,n,l); pvs = ones(m,n,l)
+        for i = 1:m
+            for j = 1:n
+                for k = 1:l
+                    vp[i,j,k] = 2*sigmoid(vp_[i,j,k])-1 + vel0[i,j,k]
+                    pvs[i,j,k] = 4*sigmoid(pvs_[i,j,k])-2 + 1.7583
+                end
             end
         end
     end
@@ -190,6 +195,8 @@ function gene_loss(i)
 
 end
 
-for i = 20:20:1000
-    gene_loss(i)
-end
+# for i = 820:20:1000
+#     gene_loss(i)
+# end
+
+gene_loss(0)
