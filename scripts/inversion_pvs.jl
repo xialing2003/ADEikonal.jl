@@ -44,27 +44,6 @@ uobs_s = uobs_s[rank+1:nproc:numsta,:]
 qua_s = qua_s[rank+1:nproc:numsta,:]
 numsta = size(allsta,1)
 
-# var_change = Variable(zero(vel0)); pvs_ = Variable(ones(Float64,m,n,l)*pvs_old)
-# vari = vcat(tf.reshape(var_change, (-1,)), tf.reshape(pvs_, (-1,)))
-# varn = mpi_bcast(vari)
-# fvar_ = tf.reshape(varn[1:prod(size(var_change))], size(var_change))
-# fvar = 2*sigmoid(fvar_)-1 + vel0
-# pvs = tf.reshape(varn[prod(size(var_change))+1:end], size(pvs_))
-
-# var_change = Variable(zero(vel0)); pvs_change = Variable(zero(vel0))
-# vari = vcat(tf.reshape(var_change, (-1,)), tf.reshape(pvs_change, (-1,)))
-# varn = mpi_bcast(vari)
-# fvar_ = tf.reshape(varn[1:prod(size(var_change))], size(var_change))
-# fvar = 2*sigmoid(fvar_)-1 + vel0
-# pvs_ = tf.reshape(varn[prod(size(var_change))+1:end], size(pvs_change))
-# pvs = 4*sigmoid(pvs_)-2 + ones(Float64,m,n,l)*pvs_old
-
-# var_change = Variable(vel0); pvs_ = Variable(ones(Float64,m,n,l)*pvs_old)
-# vari = vcat(tf.reshape(var_change, (-1,)), tf.reshape(pvs_, (-1,)))
-# varn = mpi_bcast(vari)
-# fvar = tf.reshape(varn[1:prod(size(var_change))], size(var_change))
-# pvs = tf.reshape(varn[prod(size(var_change))+1:end], size(pvs_))
-
 vari_ = Variable(zeros(m,n,l*2))
 vari = mpi_bcast(vari_)
 fvar = 2*sigmoid(vari[:,:,1:l])-1 + vel0
@@ -172,31 +151,40 @@ sv1 = config["smooth_ver"]; sv2 = convert(Int,(config["smooth_ver"]-1)/2)
 gauss_wei = ones(sh1,sh1,sv1) ./ (sh1*sh1*sv1)
 filter = tf.constant(gauss_wei,shape=(sh1,sh1,sv1,1,1),dtype=tf.float64)
 
-o_vel = fvar
-o_vel = tf.concat([o_vel[m-sh2+1:m,:,:],o_vel,o_vel[1:sh2,:,:]],axis=0)
-o_vel = tf.concat([o_vel[:,n-sh2+1:n,:],o_vel,o_vel[:,1:sh2,:]],axis=1)
-o_vel = tf.concat([o_vel[:,:,l-sv2+1:l],o_vel,o_vel[:,:,1:sv2]],axis=2)
-vel = tf.reshape(o_vel,(1,m+sh1-1,n+sh1-1,l+sv1-1,1))
+o_vp = fvar
+o_vp = tf.concat([o_vp[m-sh2+1:m,:,:],o_vp,o_vp[1:sh2,:,:]],axis=0)
+o_vp = tf.concat([o_vp[:,n-sh2+1:n,:],o_vp,o_vp[:,1:sh2,:]],axis=1)
+o_vp = tf.concat([o_vp[:,:,l-sv2+1:l],o_vp,o_vp[:,:,1:sv2]],axis=2)
+vp = tf.reshape(o_vp,(1,m+sh1-1,n+sh1-1,l+sv1-1,1))
 
-cvel = tf.nn.conv3d(vel,filter,strides = (1,1,1,1,1),padding="VALID")
-n_vel = tf.reshape(cvel,(m,n,l))
+cvp = tf.nn.conv3d(vp,filter,strides = (1,1,1,1,1),padding="VALID")
+n_vp = tf.reshape(cvp,(m,n,l))
+
+vs_ = fvar ./ pvs; o_vs = vs_
+o_vs = tf.concat([o_vs[m-sh2+1:m,:,:],o_vs,o_vs[1:sh2,:,:]],axis=0)
+o_vs = tf.concat([o_vs[:,n-sh2+1:n,:],o_vs,o_vs[:,1:sh2,:]],axis=1)
+o_vs = tf.concat([o_vs[:,:,l-sv2+1:l],o_vs,o_vs[:,:,1:sv2]],axis=2)
+vs = tf.reshape(o_vs,(1,m+sh1-1,n+sh1-1,l+sv1-1,1))
+
+cvs = tf.nn.conv3d(vs,filter,strides = (1,1,1,1,1),padding="VALID")
+n_vs = tf.reshape(cvs,(m,n,l))
 
 o_pvs = pvs
 o_pvs = tf.concat([o_pvs[m-sh2+1:m,:,:],o_pvs,o_pvs[1:sh2,:,:]],axis=0)
 o_pvs = tf.concat([o_pvs[:,n-sh2+1:n,:],o_pvs,o_pvs[:,1:sh2,:]],axis=1)
 o_pvs = tf.concat([o_pvs[:,:,l-sv2+1:l],o_pvs,o_pvs[:,:,1:sv2]],axis=2)
-vpvs = tf.reshape(o_pvs,(1,m+sh1-1,n+sh1-1,l+sv1-1,1))
+o_pvs = tf.reshape(o_pvs,(1,m+sh1-1,n+sh1-1,l+sv1-1,1))
 
-cpvs = tf.nn.conv3d(vpvs,filter,strides = (1,1,1,1,1),padding="VALID")
+cpvs = tf.nn.conv3d(o_pvs,filter,strides = (1,1,1,1,1),padding="VALID")
 n_pvs = tf.reshape(cpvs,(m,n,l))
 #
 
 sess = Session(); init(sess)
-loss = sum(sum_loss_time) + 0.03*sum(abs(fvar - n_vel)) + 0.01 * sum(abs(pvs - n_pvs))
+loss = sum(sum_loss_time) + 0.005 * sum(abs(fvar - n_vp)) + 0.003 * sum(abs(vs_ - n_vs)) + 0.005 * sum(abs(pvs - n_pvs))
 loss = mpi_sum(loss)
 
-options = Optim.Options(iterations = 1000000)
-loc = folder * "joint_1_2/0.03_0.01_all/"
+options = Optim.Options(iterations = 1000)
+loc = folder * "joint_1_2/p0.005_s0.003_pvs0.005/"
 result = ADTomo.mpi_optimize(sess, loss, method="LBFGS", options = options, 
     loc = loc*"intermediate/", steps = 20)
 if mpi_rank()==0
