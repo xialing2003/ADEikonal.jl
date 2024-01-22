@@ -84,6 +84,7 @@ for i = 1:numsta
 
         if uobs_p[i,j] == -1
             push!(timei_p,Variable(-1))
+            push!(timei_s,Variable(-1))
             continue
         end 
 
