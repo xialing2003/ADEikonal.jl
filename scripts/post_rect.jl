@@ -48,11 +48,7 @@ for ite =10:10:100
     figure(figsize = (config["width"],config["length"]))
     for i = 1:16
         subplot(4,4,i)
-        
-        #pcolormesh(plotf2,cmap = "Spectral",vmin=minimum(plotf2),vmax=maximum(plotf2))
         pcolormesh(transpose(vel[:,:,i]), cmap = "seismic_r",vmin=vel[1,1,i]-1,vmax=vel[1,1,i]+1)
-        #pcolormesh(plotf2,cmap = "seismic", vmin = vref*0.7, vmax = vref*1.3)
-
         title("layer "*string(i))
         colorbar()
     end
@@ -76,23 +72,65 @@ end
 
 using HDF5
 using PyPlot
-v = h5read("Vp.h5","data")
-figure(figsize=(20,30))
-for i = 1:16
-    subplot(4,4,i)
-    pcolormesh(transpose(v[:,:,i]),cmap="seismic_r")
-    title("layer "* string(i))
-    colorbar()
-end
-tight_layout()
-savefig("Vp.png")
+function post_plot(v,pvs,num)
+    figure(figsize=(20,30))
+    for i = 1:16
+        subplot(4,4,i)
+        pcolormesh(transpose(v[:,:,i]),cmap="seismic_r",vmax=v[1,1,i]+1,vmin=v[1,1,i]-1)
+        title("layer " * string(i))
+        colorbar()
+    end
+    tight_layout()
+    savefig("plot/Vp_"*num*".png")
+    close()
 
-figure(figsize=(20,30))
-for i = 1:16
-    subplot(4,4,i)
-    pcolormesh(transpose(v[:,:,i]),cmap="seismic_r",vmax=v[1,1,i]+1,vmin=v[1,1,i]-1)
-    title("layer "* string(i))
-    colorbar()
+    figure(figsize=(20,30))
+    for i = 1:16
+        subplot(4,4,i)
+        pcolormesh(transpose(pvs[:,:,i]),cmap="seismic_r",vmax=2.1,vmin=1.4)
+        title("layer " * string(i))
+        colorbar()
+    end
+    tight_layout()
+    savefig("plot/pvs_"*num*".png")
+    close()
 end
-tight_layout()
-savefig("Vp_c.png")
+
+for i = 20:20:240
+    v = h5read("vp/Vp_$i.h5","data")
+    pvs = h5read("pvs/pvs_$i.h5","data")
+    post_plot(v,pvs,string(i))
+end
+v = h5read("vp/Vp_final.h5","data")
+pvs = h5read("pvs/pvs_final.h5","data")
+post_plot(v,pvs,"final")
+
+using HDF5
+using ADCME
+vel0 = h5read("../../velocity/vel0_p.h5","data")
+function post(f,num)
+    vp_ = f[:,:,1:17]; pvs_ = f[:,:,18:34]
+    vp = zero(vp_); pvs = zero(pvs_)
+    (m,n,l) = size(vp)
+    for i = 1:m
+        for j = 1:n
+            for k = 1:l
+                vp[i,j,k] = 2*sigmoid(vp_[i,j,k])-1 + vel0[i,j,k]
+                pvs[i,j,k] = 4*sigmoid(pvs_[i,j,k])-2 + 1.7583
+            end
+        end
+    end
+    h5write("vp/Vp_"*num*".h5","data",vp)
+    h5write("pvs/pvs_"*num*".h5","data",pvs)
+end
+
+sess = Session(); init(sess)
+for i = 20:20:240
+    f_ = h5read("intermediate/iter_$i.h5","data")
+    f_ = tf.reshape(f_,(77,179,34))
+    f = run(sess,f_)
+    post(f,string(i))
+end
+
+f = h5read("final.h5","data")
+post(f,"final")
