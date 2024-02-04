@@ -30,7 +30,7 @@ dx = parse(Int,readline(rfile)); dy = parse(Int,readline(rfile)); dz = parse(Int
 allsta = CSV.read(folder * "sta_eve/allsta.csv",DataFrame); numsta = size(allsta,1)
 alleve = CSV.read(folder * "sta_eve/alleve.csv",DataFrame); numeve = size(alleve,1)
 vel0 = h5read(folder * "velocity/vel0_p.h5","data")
-uobs = h5read(folder * "for_P/ucheck_p_10.h5","matrix")
+uobs = h5read(folder * "for_P/uobs_p.h5","matrix")
 qua = h5read(folder * "for_P/qua_p.h5","matrix")
 
 allsta = allsta[rank+1:nproc:numsta,:]
@@ -65,30 +65,18 @@ caltime = []
 for i = 1:numsta
     timei = []
     for j = 1:numeve
-        jx = alleve.x[j]; x1 = convert(Int64,floor(jx)); x2 = convert(Int64,ceil(jx))
-        jy = alleve.y[j]; y1 = convert(Int64,floor(jy)); y2 = convert(Int64,ceil(jy))
-        jz = alleve.z[j]; z1 = convert(Int64,floor(jz)); z2 = convert(Int64,ceil(jz))
-        
-        if x1 == x2
-            tx11 = uvar[i][x1,y1,z1]; tx12 = uvar[i][x1,y1,z2]
-            tx21 = uvar[i][x1,y2,z1]; tx22 = uvar[i][x1,y2,z2]
-        else
-            tx11 = (x2-jx)*uvar[i][x1,y1,z1] + (jx-x1)*uvar[i][x2,y1,z1]
-            tx12 = (x2-jx)*uvar[i][x1,y1,z2] + (jx-x1)*uvar[i][x2,y1,z2]
-            tx21 = (x2-jx)*uvar[i][x1,y2,z1] + (jx-x1)*uvar[i][x2,y2,z1]
-            tx22 = (x2-jx)*uvar[i][x1,y2,z2] + (jx-x1)*uvar[i][x2,y2,z2]
+        if uobs[i,j] == -1
+            push!(timei, Variable(-1))
+            continue
         end
-        if y1 == y2
-            txy1 = tx11; txy2 = tx12
-        else
-            txy1 = (y2-jy)*tx11 + (jy-y1)*tx21
-            txy2 = (y2-jy)*tx12 + (jy-y1)*tx22
-        end
-        if z1 == z2
-            txyz = txy1
-        else
-            txyz = (z2-jz)*txy1 + (jz-z1)*txy2
-        end
+        jx = alleve.x[j]; x1 = convert(Int64,floor(jx)); x2 = x1 + 1
+        jy = alleve.y[j]; y1 = convert(Int64,floor(jy)); y2 = y1 + 1
+        jz = alleve.z[j]; z1 = convert(Int64,floor(jz)); z2 = z1 + 1
+
+        txyz = (z2-jz)*(y2-jy)*((x2-jx)*uvar[i][x1,y1,z1] + (jx-x1)*uvar[i][x2,y1,z1]) +
+               (z2-jz)*(jy-y1)*((x2-jx)*uvar[i][x1,y2,z1] + (jx-x1)*uvar[i][x2,y2,z1]) + 
+               (jz-z1)*(y2-jy)*((x2-jx)*uvar[i][x1,y1,z2] + (jx-x1)*uvar[i][x2,y1,z2]) + 
+               (jz-z1)*(jy-y1)*((x2-jx)*uvar[i][x1,y2,z2] + (jx-x1)*uvar[i][x2,y2,z2])
         push!(timei,txyz)
     end
     push!(caltime,timei)
@@ -104,9 +92,12 @@ for i = 1:numeve
     end
 end
 
-sh1 = config["smooth_hor"]; sv1 = config["smooth_ver"]
-sh2 = convert(Int,(config["smooth_hor"]-1)/2); sv2 = convert(Int,(config["smooth_ver"]-1)/2);
+sh1 = config["smooth_hor"]; sh2 = convert(Int,(config["smooth_hor"]-1)/2)
+sv1 = config["smooth_ver"]; sv2 = convert(Int,(config["smooth_ver"]-1)/2);
 gauss_wei = ones(sh1,sh1,sv1) ./ (sh1*sh1*sv1)
+# gauss_wei = h5read("../local/BayArea/readin_data/filter/center.h5","data")
+# (sh1,sh1,sv1) = size(gauss_wei)
+# sh2 = convert(Int,(sh1-1)/2); sv2 = convert(Int,(sv1-1)/2)
 filter = tf.constant(gauss_wei,shape=(sh1,sh1,sv1,1,1),dtype=tf.float64)
 
 o_vel = fvar
@@ -118,17 +109,17 @@ vel = tf.reshape(o_vel,(1,m+sh1-1,n+sh1-1,l+sv1-1,1))
 cvel = tf.nn.conv3d(vel,filter,strides = (1,1,1,1,1),padding="VALID")
 n_vel = tf.reshape(cvel,(m,n,l))
 
-loss = sum(sum_loss_time) + config["lambda_p"]*sum(abs(fvar - n_vel))
 sess = Session(); init(sess)
+loss = sum(sum_loss_time) + 0.01*sum(abs(fvar - n_vel))
 loss = mpi_sum(loss)
 
-options = Optim.Options(iterations = config["iterations"])
+options = Optim.Options(iterations = 1000)
 #loc = folder * "check_P_"*string(config["lambda_p"])*"/"
-loc = folder * "check_P_10/"
+loc = folder * "inv_P/1_0.01/"
 result = ADTomo.mpi_optimize(sess, loss, method="LBFGS", options = options, 
-    loc = loc*"intermediate/", steps = config["steps"])
+    loc = loc*"intermediate/", steps = 10)
 if mpi_rank()==0
     @info [size(result[i]) for i = 1:length(result)]
-    @info [length(result)]
+    h5write(loc * "Vp.h5","data",result[1])
 end
 mpi_finalize()

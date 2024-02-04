@@ -18,9 +18,9 @@ mpi_init()
 rank = mpi_rank()
 nproc = mpi_size()
 
-region = "demo/"
+region = "BayArea/"
 folder = "../local/" * region * "readin_data/"
-config = JSON.parsefile("../local/" * region * "readin_data/config.json")["inversion"]
+config = JSON.parsefile(folder * "config.json")["inversion"]
 
 rfile = open(folder * "range.txt","r")
 m = parse(Int,readline(rfile)); n = parse(Int,readline(rfile))
@@ -85,52 +85,32 @@ caltime_p = []; caltime_s = []
 for i = 1:numsta
     timei_p = []; timei_s = []
     for j = 1:numeve
-        jx = alleve.x[j]; x1 = convert(Int64,floor(jx)); x2 = convert(Int64,ceil(jx))
-        jy = alleve.y[j]; y1 = convert(Int64,floor(jy)); y2 = convert(Int64,ceil(jy))
-        jz = alleve.z[j]; z1 = convert(Int64,floor(jz)); z2 = convert(Int64,ceil(jz))
         
-        if x1 == x2
-            tx11 = uvar_p[i][x1,y1,z1]; tx12 = uvar_p[i][x1,y1,z2]
-            tx21 = uvar_p[i][x1,y2,z1]; tx22 = uvar_p[i][x1,y2,z2]
-        else
-            tx11 = (x2-jx)*uvar_p[i][x1,y1,z1] + (jx-x1)*uvar_p[i][x2,y1,z1]
-            tx12 = (x2-jx)*uvar_p[i][x1,y1,z2] + (jx-x1)*uvar_p[i][x2,y1,z2]
-            tx21 = (x2-jx)*uvar_p[i][x1,y2,z1] + (jx-x1)*uvar_p[i][x2,y2,z1]
-            tx22 = (x2-jx)*uvar_p[i][x1,y2,z2] + (jx-x1)*uvar_p[i][x2,y2,z2]
-        end
-        if y1 == y2
-            txy1 = tx11; txy2 = tx12
-        else
-            txy1 = (y2-jy)*tx11 + (jy-y1)*tx21
-            txy2 = (y2-jy)*tx12 + (jy-y1)*tx22
-        end
-        if z1 == z2
-            txyz = txy1
-        else
-            txyz = (z2-jz)*txy1 + (jz-z1)*txy2
-        end
+        if uobs_p[i,j] == -1
+            push!(timei_p,Variable(-1))
+            push!(timei_s,Variable(-1))
+            continue
+        end 
+
+        jx = alleve.x[j]; x1 = convert(Int64,floor(jx)); x2 = x1 + 1
+        jy = alleve.y[j]; y1 = convert(Int64,floor(jy)); y2 = y1 + 1
+        jz = alleve.z[j]; z1 = convert(Int64,floor(jz)); z2 = z1 + 1
+
+        txyz = (z2-jz)*(y2-jy)*((x2-jx)*uvar_p[i][x1,y1,z1] + (jx-x1)*uvar_p[i][x2,y1,z1]) +
+               (z2-jz)*(jy-y1)*((x2-jx)*uvar_p[i][x1,y2,z1] + (jx-x1)*uvar_p[i][x2,y2,z1]) + 
+               (jz-z1)*(y2-jy)*((x2-jx)*uvar_p[i][x1,y1,z2] + (jx-x1)*uvar_p[i][x2,y1,z2]) + 
+               (jz-z1)*(jy-y1)*((x2-jx)*uvar_p[i][x1,y2,z2] + (jx-x1)*uvar_p[i][x2,y2,z2])
         push!(timei_p,txyz)
 
-        if x1 == x2
-            tx11 = uvar_s[i][x1,y1,z1]; tx12 = uvar_s[i][x1,y1,z2]
-            tx21 = uvar_s[i][x1,y2,z1]; tx22 = uvar_s[i][x1,y2,z2]
-        else
-            tx11 = (x2-jx)*uvar_s[i][x1,y1,z1] + (jx-x1)*uvar_s[i][x2,y1,z1]
-            tx12 = (x2-jx)*uvar_s[i][x1,y1,z2] + (jx-x1)*uvar_s[i][x2,y1,z2]
-            tx21 = (x2-jx)*uvar_s[i][x1,y2,z1] + (jx-x1)*uvar_s[i][x2,y2,z1]
-            tx22 = (x2-jx)*uvar_s[i][x1,y2,z2] + (jx-x1)*uvar_s[i][x2,y2,z2]
+        if uobs_d[i,j] == -1
+            push!(timei_s,Variable(-1))
+            continue
         end
-        if y1 == y2
-            txy1 = tx11; txy2 = tx12
-        else
-            txy1 = (y2-jy)*tx11 + (jy-y1)*tx21
-            txy2 = (y2-jy)*tx12 + (jy-y1)*tx22
-        end
-        if z1 == z2
-            txyz = txy1
-        else
-            txyz = (z2-jz)*txy1 + (jz-z1)*txy2
-        end
+
+        txyz = (z2-jz)*(y2-jy)*((x2-jx)*uvar_s[i][x1,y1,z1] + (jx-x1)*uvar_s[i][x2,y1,z1]) +
+               (z2-jz)*(jy-y1)*((x2-jx)*uvar_s[i][x1,y2,z1] + (jx-x1)*uvar_s[i][x2,y2,z1]) + 
+               (jz-z1)*(y2-jy)*((x2-jx)*uvar_s[i][x1,y1,z2] + (jx-x1)*uvar_s[i][x2,y1,z2]) + 
+               (jz-z1)*(jy-y1)*((x2-jx)*uvar_s[i][x1,y2,z2] + (jx-x1)*uvar_s[i][x2,y2,z2])
         push!(timei_s,txyz)
     end
     push!(caltime_p,timei_p)
@@ -149,9 +129,10 @@ for i = 1:numeve
     end
 end
 #
-sh1 = config["smooth_hor"]; sv1 = config["smooth_ver"]
-sh2 = convert(Int,(config["smooth_hor"]-1)/2); sv2 = convert(Int,(config["smooth_ver"]-1)/2);
-gauss_wei = ones(sh1,sh1,sv1) ./ (sh1*sh1*sv1)
+# sh1 = config["smooth_hor"]; sv1 = config["smooth_ver"]
+# sh2 = convert(Int,(config["smooth_hor"]-1)/2); sv2 = convert(Int,(config["smooth_ver"]-1)/2);
+# gauss_wei = ones(sh1,sh1,sv1) ./ (sh1*sh1*sv1)
+gauss_wei = h5read("../local/BayArea/readin_data/filter/center.h5","data")
 filter = tf.constant(gauss_wei,shape=(sh1,sh1,sv1,1,1),dtype=tf.float64)
 
 o_vel = fvar
@@ -168,9 +149,9 @@ sess = Session(); init(sess)
 loss = mpi_sum(loss)
 
 options = Optim.Options(iterations = config["iterations"])
-loc = folder * "joint_"*string(config["lambda_p"])*"/"
+loc = folder * "joint_P/"
 result = ADTomo.mpi_optimize(sess, loss, method="LBFGS", options = options, 
-    loc = loc*"intermediate/", steps = 100000)
+    loc = loc*"intermediate/", steps = 10)
 if mpi_rank()==0
     @info [size(result[i]) for i = 1:length(result)]
     @info [length(result)]
