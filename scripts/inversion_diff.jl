@@ -93,8 +93,8 @@ for i = 1:numsta
         jz = alleve.z[j]; z1 = convert(Int64,floor(jz)); z2 = z1 + 1
 
         txyz = (z2-jz)*(y2-jy)*((x2-jx)*uvar_p[i][x1,y1,z1] + (jx-x1)*uvar_p[i][x2,y1,z1]) +
-               (z2-jz)*(jy-y1)*((x2-jx)*uvar_p[i][x1,y1,z2] + (jx-x1)*uvar_p[i][x2,y1,z2]) + 
-               (jz-z1)*(y2-jy)*((x2-jx)*uvar_p[i][x1,y2,z1] + (jx-x1)*uvar_p[i][x2,y2,z1]) + 
+               (z2-jz)*(jy-y1)*((x2-jx)*uvar_p[i][x1,y2,z1] + (jx-x1)*uvar_p[i][x2,y2,z1]) + 
+               (jz-z1)*(y2-jy)*((x2-jx)*uvar_p[i][x1,y1,z2] + (jx-x1)*uvar_p[i][x2,y1,z2]) + 
                (jz-z1)*(jy-y1)*((x2-jx)*uvar_p[i][x1,y2,z2] + (jx-x1)*uvar_p[i][x2,y2,z2])
         push!(timei_p,txyz)
 
@@ -104,8 +104,8 @@ for i = 1:numsta
         end
 
         txyz = (z2-jz)*(y2-jy)*((x2-jx)*uvar_s[i][x1,y1,z1] + (jx-x1)*uvar_s[i][x2,y1,z1]) +
-               (z2-jz)*(jy-y1)*((x2-jx)*uvar_s[i][x1,y1,z2] + (jx-x1)*uvar_s[i][x2,y1,z2]) + 
-               (jz-z1)*(y2-jy)*((x2-jx)*uvar_s[i][x1,y2,z1] + (jx-x1)*uvar_s[i][x2,y2,z1]) + 
+               (z2-jz)*(jy-y1)*((x2-jx)*uvar_s[i][x1,y2,z1] + (jx-x1)*uvar_s[i][x2,y2,z1]) + 
+               (jz-z1)*(y2-jy)*((x2-jx)*uvar_s[i][x1,y1,z2] + (jx-x1)*uvar_s[i][x2,y1,z2]) + 
                (jz-z1)*(jy-y1)*((x2-jx)*uvar_s[i][x1,y2,z2] + (jx-x1)*uvar_s[i][x2,y2,z2])
         push!(timei_s,txyz)
     end

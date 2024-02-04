@@ -70,57 +70,25 @@ ubeg_p = run(sess,u_p); ubeg_s = run(sess,u_s)
 scaltime_p = ones(numsta,numeve); scaltime_s = ones(numsta,numeve)
 for i = 1:numsta
     for j = 1:numeve
-        jx = alleve.x[j]; x1 = convert(Int64,floor(jx)); x2 = convert(Int64,ceil(jx))
-        jy = alleve.y[j]; y1 = convert(Int64,floor(jy)); y2 = convert(Int64,ceil(jy))
-        jz = alleve.z[j]; z1 = convert(Int64,floor(jz)); z2 = convert(Int64,ceil(jz))
+        jx = alleve.x[j]; x1 = convert(Int64,floor(jx)); x2 = x1 + 1
+        jy = alleve.y[j]; y1 = convert(Int64,floor(jy)); y2 = y1 + 1
+        jz = alleve.z[j]; z1 = convert(Int64,floor(jz)); z2 = z1 + 1
         # P wave
-        if x1 == x2
-            tx11 = ubeg_p[i][x1,y1,z1]; tx12 = ubeg_p[i][x1,y1,z2]
-            tx21 = ubeg_p[i][x1,y2,z1]; tx22 = ubeg_p[i][x1,y2,z2]
-        else
-            tx11 = (x2-jx)*ubeg_p[i][x1,y1,z1] + (jx-x1)*ubeg_p[i][x2,y1,z1]
-            tx12 = (x2-jx)*ubeg_p[i][x1,y1,z2] + (jx-x1)*ubeg_p[i][x2,y1,z2]
-            tx21 = (x2-jx)*ubeg_p[i][x1,y2,z1] + (jx-x1)*ubeg_p[i][x2,y2,z1]
-            tx22 = (x2-jx)*ubeg_p[i][x1,y2,z2] + (jx-x1)*ubeg_p[i][x2,y2,z2]
-        end
-        if y1 == y2
-            txy1 = tx11; txy2 = tx12
-        else
-            txy1 = (y2-jy)*tx11 + (jy-y1)*tx21
-            txy2 = (y2-jy)*tx12 + (jy-y1)*tx22
-        end
-        if z1 ==z2
-            txyz = txy1
-        else
-            txyz = (z2-jz)*txy1 + (jz-z1)*txy2
-        end
+        txyz = (z2-jz)*(y2-jy)*((x2-jx)*ubeg_p[i][x1,y1,z1] + (jx-x1)*ubeg_p[i][x2,y1,z1]) +
+               (z2-jz)*(jy-y1)*((x2-jx)*ubeg_p[i][x1,y2,z1] + (jx-x1)*ubeg_p[i][x2,y2,z1]) + 
+               (jz-z1)*(y2-jy)*((x2-jx)*ubeg_p[i][x1,y1,z2] + (jx-x1)*ubeg_p[i][x2,y1,z2]) + 
+               (jz-z1)*(jy-y1)*((x2-jx)*ubeg_p[i][x1,y2,z2] + (jx-x1)*ubeg_p[i][x2,y2,z2])
         scaltime_p[i,j] = txyz
         # S wave
-        if x1 == x2
-            tx11 = ubeg_s[i][x1,y1,z1]; tx12 = ubeg_s[i][x1,y1,z2]
-            tx21 = ubeg_s[i][x1,y2,z1]; tx22 = ubeg_s[i][x1,y2,z2]
-        else
-            tx11 = (x2-jx)*ubeg_s[i][x1,y1,z1] + (jx-x1)*ubeg_s[i][x2,y1,z1]
-            tx12 = (x2-jx)*ubeg_s[i][x1,y1,z2] + (jx-x1)*ubeg_s[i][x2,y1,z2]
-            tx21 = (x2-jx)*ubeg_s[i][x1,y2,z1] + (jx-x1)*ubeg_s[i][x2,y2,z1]
-            tx22 = (x2-jx)*ubeg_s[i][x1,y2,z2] + (jx-x1)*ubeg_s[i][x2,y2,z2]
-        end
-        if y1 == y2
-            txy1 = tx11; txy2 = tx12
-        else
-            txy1 = (y2-jy)*tx11 + (jy-y1)*tx21
-            txy2 = (y2-jy)*tx12 + (jy-y1)*tx22
-        end
-        if z1 ==z2
-            txyz = txy1
-        else
-            txyz = (z2-jz)*txy1 + (jz-z1)*txy2
-        end
+        txyz = (z2-jz)*(y2-jy)*((x2-jx)*ubeg_s[i][x1,y1,z1] + (jx-x1)*ubeg_s[i][x2,y1,z1]) +
+               (z2-jz)*(jy-y1)*((x2-jx)*ubeg_s[i][x1,y2,z1] + (jx-x1)*ubeg_s[i][x2,y2,z1]) + 
+               (jz-z1)*(y2-jy)*((x2-jx)*ubeg_s[i][x1,y1,z2] + (jx-x1)*ubeg_s[i][x2,y1,z2]) + 
+               (jz-z1)*(jy-y1)*((x2-jx)*ubeg_s[i][x1,y2,z2] + (jx-x1)*ubeg_s[i][x2,y2,z2])
         scaltime_s[i,j] = txyz
     end
 end
 
-uobs_p = -ones(numsta,numeve); uobs_s = -ones(numsta,numeve)
+uobs_p = -ones(numsta,numeve); uobs_s = -ones(numsta,numeve); uobs_d = -ones(numsta,numeve)
 qua_p = ones(numsta,numeve); qua_s = ones(numsta,numeve)
 for i = 1:numeve
     local evetime = events[eveid[i],2]; local id = events[eveid[i],1]
@@ -196,16 +164,26 @@ for i = 1:numeve
     end
 end
 
+for i = 1:numsta
+    for j = 1:numeve
+        if uobs_p[i,j] != -1 && uobs_s[i,j] != -1
+            uobs_d[i,j] = uobs_s[i,j] - uobs_p[i,j]
+        end
+    end
+end
+
 if isfile(folder * "for_P/uobs_p.h5")
     rm(folder * "for_P/uobs_p.h5")
     rm(folder * "for_P/qua_p.h5")
     rm(folder * "for_S/uobs_s.h5")
     rm(folder * "for_S/qua_s.h5")
+    rm(folder * "uobs_d.h5")
 end
 h5write(folder * "for_P/uobs_p.h5","matrix",uobs_p)
 h5write(folder * "for_S/uobs_s.h5","matrix",uobs_s)
 h5write(folder * "for_P/qua_p.h5","matrix",qua_p)
 h5write(folder * "for_S/qua_s.h5","matrix",qua_s)
+h5write(folder * "uobs_d.h5","matrix",uobs_d)
 
 print(numbig_p," ",numsmall_p,'\n',numbig_s," ",numsmall_s,'\n')
 print(sum_p," ",sum_s,'\n')
