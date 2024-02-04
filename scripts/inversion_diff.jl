@@ -88,56 +88,25 @@ for i = 1:numsta
             continue
         end 
 
-        jx = alleve.x[j]; x1 = convert(Int64,floor(jx)); x2 = convert(Int64,ceil(jx))
-        jy = alleve.y[j]; y1 = convert(Int64,floor(jy)); y2 = convert(Int64,ceil(jy))
-        jz = alleve.z[j]; z1 = convert(Int64,floor(jz)); z2 = convert(Int64,ceil(jz))
-              
-        if x1 == x2
-            tx11 = uvar_p[i][x1,y1,z1]; tx12 = uvar_p[i][x1,y1,z2]
-            tx21 = uvar_p[i][x1,y2,z1]; tx22 = uvar_p[i][x1,y2,z2]
-        else
-            tx11 = (x2-jx)*uvar_p[i][x1,y1,z1] + (jx-x1)*uvar_p[i][x2,y1,z1]
-            tx12 = (x2-jx)*uvar_p[i][x1,y1,z2] + (jx-x1)*uvar_p[i][x2,y1,z2]
-            tx21 = (x2-jx)*uvar_p[i][x1,y2,z1] + (jx-x1)*uvar_p[i][x2,y2,z1]
-            tx22 = (x2-jx)*uvar_p[i][x1,y2,z2] + (jx-x1)*uvar_p[i][x2,y2,z2]
-        end
-        if y1 == y2
-            txy1 = tx11; txy2 = tx12
-        else
-            txy1 = (y2-jy)*tx11 + (jy-y1)*tx21
-            txy2 = (y2-jy)*tx12 + (jy-y1)*tx22
-        end
-        if z1 == z2
-            txyz = txy1
-        else
-            txyz = (z2-jz)*txy1 + (jz-z1)*txy2
-        end
+        jx = alleve.x[j]; x1 = convert(Int64,floor(jx)); x2 = x1 + 1
+        jy = alleve.y[j]; y1 = convert(Int64,floor(jy)); y2 = y1 + 1
+        jz = alleve.z[j]; z1 = convert(Int64,floor(jz)); z2 = z1 + 1
+
+        txyz = (z2-jz)*(y2-jy)*((x2-jx)*uvar_p[i][x1,y1,z1] + (jx-x1)*uvar_p[i][x2,y1,z1]) +
+               (z2-jz)*(jy-y1)*((x2-jx)*uvar_p[i][x1,y1,z2] + (jx-x1)*uvar_p[i][x2,y1,z2]) + 
+               (jz-z1)*(y2-jy)*((x2-jx)*uvar_p[i][x1,y2,z1] + (jx-x1)*uvar_p[i][x2,y2,z1]) + 
+               (jz-z1)*(jy-y1)*((x2-jx)*uvar_p[i][x1,y2,z2] + (jx-x1)*uvar_p[i][x2,y2,z2])
         push!(timei_p,txyz)
 
         if uobs_d[i,j] == -1
             push!(timei_s,Variable(-1))
             continue
         end
-        if x1 == x2
-            tx11 = uvar_s[i][x1,y1,z1]; tx12 = uvar_s[i][x1,y1,z2]
-            tx21 = uvar_s[i][x1,y2,z1]; tx22 = uvar_s[i][x1,y2,z2]
-        else
-            tx11 = (x2-jx)*uvar_s[i][x1,y1,z1] + (jx-x1)*uvar_s[i][x2,y1,z1]
-            tx12 = (x2-jx)*uvar_s[i][x1,y1,z2] + (jx-x1)*uvar_s[i][x2,y1,z2]
-            tx21 = (x2-jx)*uvar_s[i][x1,y2,z1] + (jx-x1)*uvar_s[i][x2,y2,z1]
-            tx22 = (x2-jx)*uvar_s[i][x1,y2,z2] + (jx-x1)*uvar_s[i][x2,y2,z2]
-        end
-        if y1 == y2
-            txy1 = tx11; txy2 = tx12
-        else
-            txy1 = (y2-jy)*tx11 + (jy-y1)*tx21
-            txy2 = (y2-jy)*tx12 + (jy-y1)*tx22
-        end
-        if z1 == z2
-            txyz = txy1
-        else
-            txyz = (z2-jz)*txy1 + (jz-z1)*txy2
-        end
+
+        txyz = (z2-jz)*(y2-jy)*((x2-jx)*uvar_s[i][x1,y1,z1] + (jx-x1)*uvar_s[i][x2,y1,z1]) +
+               (z2-jz)*(jy-y1)*((x2-jx)*uvar_s[i][x1,y1,z2] + (jx-x1)*uvar_s[i][x2,y1,z2]) + 
+               (jz-z1)*(y2-jy)*((x2-jx)*uvar_s[i][x1,y2,z1] + (jx-x1)*uvar_s[i][x2,y2,z1]) + 
+               (jz-z1)*(jy-y1)*((x2-jx)*uvar_s[i][x1,y2,z2] + (jx-x1)*uvar_s[i][x2,y2,z2])
         push!(timei_s,txyz)
     end
     push!(caltime_p,timei_p)
