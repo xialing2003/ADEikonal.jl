@@ -44,9 +44,10 @@ uobs_d = uobs_d[rank+1:nproc:numsta,:]
 qua_d = qua_d[rank+1:nproc:numsta,:]
 numsta = size(allsta,1)
 
-vari = mpi_bcast(Variable(zeros(m,n,l*2)))
+vari_ = Variable(zeros(m,n,l*2))
+vari = mpi_bcast(vari_)
 fvar = 2*sigmoid(vari[:,:,1:l])-1 + vel0
-pvs = 0.6*sigmoid(vari[:,:,1+l:2*l])-0.3 + ones(Float64,m,n,l)*pvs_old
+pvs = 4*sigmoid(vari[:,:,1+l:2*l])-2 + ones(Float64,m,n,l)*pvs_old
 
 uvar_p = PyObject[]; uvar_s = PyObject[]
 for i = 1:numsta
@@ -81,17 +82,10 @@ caltime_p = []; caltime_s = []
 for i = 1:numsta
     timei_p = []; timei_s = []
     for j = 1:numeve
-
-        if uobs_p[i,j] == -1
-            push!(timei_p,Variable(-1))
-            push!(timei_s,Variable(-1))
-            continue
-        end 
-
         jx = alleve.x[j]; x1 = convert(Int64,floor(jx)); x2 = convert(Int64,ceil(jx))
         jy = alleve.y[j]; y1 = convert(Int64,floor(jy)); y2 = convert(Int64,ceil(jy))
         jz = alleve.z[j]; z1 = convert(Int64,floor(jz)); z2 = convert(Int64,ceil(jz))
-              
+        
         if x1 == x2
             tx11 = uvar_p[i][x1,y1,z1]; tx12 = uvar_p[i][x1,y1,z2]
             tx21 = uvar_p[i][x1,y2,z1]; tx22 = uvar_p[i][x1,y2,z2]
@@ -114,10 +108,6 @@ for i = 1:numsta
         end
         push!(timei_p,txyz)
 
-        if uobs_d[i,j] == -1
-            push!(timei_s,Variable(-1))
-            continue
-        end
         if x1 == x2
             tx11 = uvar_s[i][x1,y1,z1]; tx12 = uvar_s[i][x1,y1,z2]
             tx21 = uvar_s[i][x1,y2,z1]; tx22 = uvar_s[i][x1,y2,z2]
@@ -156,36 +146,45 @@ for i = 1:numeve
     end
 end
 #
-sh1 = config["smooth_hor"]; sv1 = config["smooth_ver"]
-sh2 = convert(Int,(sh1-1)/2); sv2 = convert(Int,(sv1-1)/2)
+sh1 = config["smooth_hor"]; sh2 = convert(Int,(config["smooth_hor"]-1)/2)
+sv1 = config["smooth_ver"]; sv2 = convert(Int,(config["smooth_ver"]-1)/2)
 gauss_wei = ones(sh1,sh1,sv1) ./ (sh1*sh1*sv1)
 filter = tf.constant(gauss_wei,shape=(sh1,sh1,sv1,1,1),dtype=tf.float64)
 
-o_vp = tf.reshape(fvar, (1,m,n,l,1))
-cvp = tf.nn.conv3d(o_vp, filter, strides = (1,1,1,1,1), padding="VALID")
-n_vp = tf.reshape(cvp, (m-sh1+1,n-sh1+1,l-sv1+1))
+o_vp = fvar
+o_vp = tf.concat([o_vp[m-sh2+1:m,:,:],o_vp,o_vp[1:sh2,:,:]],axis=0)
+o_vp = tf.concat([o_vp[:,n-sh2+1:n,:],o_vp,o_vp[:,1:sh2,:]],axis=1)
+o_vp = tf.concat([o_vp[:,:,l-sv2+1:l],o_vp,o_vp[:,:,1:sv2]],axis=2)
+vp = tf.reshape(o_vp,(1,m+sh1-1,n+sh1-1,l+sv1-1,1))
 
-vs_ =  fvar ./ pvs; o_vs = tf.reshape(vs_, (1,m,n,l,1));
-cvs = tf.nn.conv3d(o_vs, filter, strides = (1,1,1,1,1), padding="VALID")
-n_vs = tf.reshape(cvs, (m-sh1+1,n-sh1+1,l-sv1+1))
+cvp = tf.nn.conv3d(vp,filter,strides = (1,1,1,1,1),padding="VALID")
+n_vp = tf.reshape(cvp,(m,n,l))
 
-o_pvs = tf.reshape(pvs, (1,m,n,l,1))
-cpvs = tf.nn.conv3d(o_pvs, filter, strides = (1,1,1,1,1), padding="VALID")
-n_pvs = tf.reshape(cpvs, (m-sh1+1,n-sh1+1,l-sv1+1))
+vs_ = fvar ./ pvs; o_vs = vs_
+o_vs = tf.concat([o_vs[m-sh2+1:m,:,:],o_vs,o_vs[1:sh2,:,:]],axis=0)
+o_vs = tf.concat([o_vs[:,n-sh2+1:n,:],o_vs,o_vs[:,1:sh2,:]],axis=1)
+o_vs = tf.concat([o_vs[:,:,l-sv2+1:l],o_vs,o_vs[:,:,1:sv2]],axis=2)
+vs = tf.reshape(o_vs,(1,m+sh1-1,n+sh1-1,l+sv1-1,1))
+
+cvs = tf.nn.conv3d(vs,filter,strides = (1,1,1,1,1),padding="VALID")
+n_vs = tf.reshape(cvs,(m,n,l))
+
+o_pvs = pvs
+o_pvs = tf.concat([o_pvs[m-sh2+1:m,:,:],o_pvs,o_pvs[1:sh2,:,:]],axis=0)
+o_pvs = tf.concat([o_pvs[:,n-sh2+1:n,:],o_pvs,o_pvs[:,1:sh2,:]],axis=1)
+o_pvs = tf.concat([o_pvs[:,:,l-sv2+1:l],o_pvs,o_pvs[:,:,1:sv2]],axis=2)
+o_pvs = tf.reshape(o_pvs,(1,m+sh1-1,n+sh1-1,l+sv1-1,1))
+
+cpvs = tf.nn.conv3d(o_pvs,filter,strides = (1,1,1,1,1),padding="VALID")
+n_pvs = tf.reshape(cpvs,(m,n,l))
 #
 
 sess = Session(); init(sess)
-#loss = sum(sum_loss_time) + 0.01 * sum((fvar - n_vp)^4) + 0.01 * sum((pvs - n_pvs)^4) #+ 0.001 * sum(abs(vs_ - n_vs)) 
-loss = sum(sum_loss_time) + 
-    0.002 * sum(abs(fvar[sh2+1:m-sh2,sh2+1:n-sh2,sv2+1:l-sv2] - n_vp)) +
-    0.006 * sum(abs(pvs[sh2+1:m-sh2,sh2+1:n-sh2,sv2+1:l-sv2] - n_pvs)) + 
-    0.002 * sum(abs(vs_[sh2+1:m-sh2,sh2+1:n-sh2,sv2+1:l-sv2] - n_vs)) +
-    0.0005 * sum(abs(4*sigmoid(vari[:,:,1+l:2*l])-2))
+loss = sum(sum_loss_time) + 0.01 * sum(abs(fvar - n_vp)) + 0.01 * sum(abs(pvs - n_pvs)) #+ 0.001 * sum(abs(vs_ - n_vs)) 
 loss = mpi_sum(loss)
 
 options = Optim.Options(iterations = 1000)
-# loc = folder * "test_order/p40.01_pvs40.01/"
-loc = folder * "reg_1_0.5/0.002_0.006_0.002_0.0005/"
+loc = folder * "new_1_2/0_p0.01_pvs0.01/"
 result = ADTomo.mpi_optimize(sess, loss, method="LBFGS", options = options, 
     loc = loc*"intermediate/", steps = 20)
 if mpi_rank()==0
