@@ -25,7 +25,6 @@ config = JSON.parsefile("../local/" * region * "readin_data/config.json")["inver
 rfile = open(folder * "range.txt","r")
 m = parse(Int,readline(rfile)); n = parse(Int,readline(rfile))
 l = parse(Int,readline(rfile)); h = parse(Float64,readline(rfile))
-dx = parse(Int,readline(rfile)); dy = parse(Int,readline(rfile)); dz = parse(Int,readline(rfile))
 
 allsta = CSV.read(folder * "sta_eve/allsta.csv",DataFrame); numsta = size(allsta,1)
 alleve = CSV.read(folder * "sta_eve/alleve.csv",DataFrame); numeve = size(alleve,1)
