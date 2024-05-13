@@ -8,4 +8,4 @@ tests/for_residual/BayArea
 tests/post_process
 local/
 julia-*
-examples/*/inv/
+examples/
