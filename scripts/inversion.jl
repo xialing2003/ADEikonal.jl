@@ -18,9 +18,10 @@ mpi_init()
 rank = mpi_rank()
 nproc = mpi_size()
 
-region = "BayArea/"
-folder = "../local/" * region * "readin_data/"
-config = JSON.parsefile("../local/" * region * "readin_data/config.json")["inversion"]
+# region = "BayArea/"
+# folder = "../local/" * region * "readin_data/"
+folder = "../examples/anomaly/inv/"
+# config = JSON.parsefile("../local/" * region * "readin_data/config.json")["inversion"]
 
 rfile = open(folder * "range.txt","r")
 m = parse(Int,readline(rfile)); n = parse(Int,readline(rfile))
@@ -29,6 +30,7 @@ l = parse(Int,readline(rfile)); h = parse(Float64,readline(rfile))
 allsta = CSV.read(folder * "sta_eve/allsta.csv",DataFrame); numsta = size(allsta,1)
 alleve = CSV.read(folder * "sta_eve/alleve.csv",DataFrame); numeve = size(alleve,1)
 vel0 = h5read(folder * "velocity/vel0_p.h5","data")
+# vel0 = ones(m,n,l)*6.0
 uobs = h5read(folder * "for_P/uobs_p.h5","matrix")
 qua = h5read(folder * "for_P/qua_p.h5","matrix")
 
@@ -39,7 +41,7 @@ numsta = size(allsta,1)
 #@show rank, nproc, numsta
 
 var_change = Variable(zero(vel0))
-fvar_ = 2*sigmoid(var_change)-1 + vel0
+fvar_ = sigmoid(var_change)-0.5 + vel0
 fvar = mpi_bcast(fvar_)
 
 uvar = PyObject[]
@@ -109,16 +111,25 @@ cvel = tf.nn.conv3d(vel,filter,strides = (1,1,1,1,1),padding="VALID")
 n_vel = tf.reshape(cvel,(m,n,l))
 
 sess = Session(); init(sess)
-loss = sum(sum_loss_time) + 0.01*sum(abs(fvar - n_vel))
+loss = sum(sum_loss_time) #+ 0.01*sum(abs(fvar - n_vel))
 loss = mpi_sum(loss)
 
-options = Optim.Options(iterations = 1000)
+options = Optim.Options(iterations = 100)
 #loc = folder * "check_P_"*string(config["lambda_p"])*"/"
-loc = folder * "inv_P/1_0.01/"
+loc = folder * "inv_P/"
 result = ADTomo.mpi_optimize(sess, loss, method="LBFGS", options = options, 
     loc = loc*"intermediate/", steps = 10)
+answer = ones(m,n,l)
 if mpi_rank()==0
     @info [size(result[i]) for i = 1:length(result)]
-    h5write(loc * "Vp.h5","data",result[1])
+    h5write(loc * "result1.h5","data", result[1])
+    for i = 1:m
+        for j = 1:n
+            for k = 1:l
+                answer[i,j,k] = 2*sigmoid(result[1][i,j,k])-1 + vel0[i,j,k]
+            end
+        end
+    end
+    h5write(loc * "Vp.h5","data",answer)
 end
 mpi_finalize()
