@@ -8,4 +8,5 @@ tests/for_residual/BayArea
 tests/post_process
 local/
 julia-*
-examples/
+examples/anomaly/
+examples/checkerboard/

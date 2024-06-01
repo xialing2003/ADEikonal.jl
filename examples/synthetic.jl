@@ -15,15 +15,10 @@ folder = "anomaly"
 # len = 10
 
 ## define research region
-config = Dict(
-           "minlatitude" => 30.0,
-           "maxlatitude" => 30.5,
-           "minlongitude" => 130.0,
-           "maxlongitude" => 130.5,
-           "mindepth" => 0.0,
-           "maxdepth" => 20.0,
-           "degree2km" => 111.19
-       )
+config = Dict{String, Any}()
+config["minlatitude"] = 30.0; config["minlongitude"] = 130.0; config["mindepth"] = 0.0
+config["maxlatitude"] = 30.5; config["maxlongitude"] = 130.5; config["maxdepth"] = 20.0
+config["degree2km"] = 111.19
 
 time0 = DateTime("2019-01-01T00:00:00", "yyyy-mm-ddTHH:MM:SS")
 config["depth0"] = (config["mindepth"] + config["maxdepth"]) / 2
@@ -32,32 +27,22 @@ config["longitude0"] = (config["minlongitude"] + config["maxlongitude"]) / 2
 config["latituderange"] = config["maxlatitude"] - config["minlatitude"]
 config["longituderange"] = config["maxlongitude"] - config["minlongitude"]
 
-open(folder * "/config.json", "w") do f
-    n = length(config); i = 0
-    println(f, "{")
-    for (key, value) in config
-        i += 1
-        if i < n println(f, "\"$key\": $value,")
-        else println(f, "\"$key\": $value")
-        end
-    end
-    println(f, "}")
-end
-
 pyproj = pyimport("pyproj") # use it in an environment with pyproj
 proj = pyproj.Proj(
     "+proj=sterea +lon_0=$( (config["minlongitude"] + config["maxlongitude"]) / 2 ) +lat_0=$( (config["minlatitude"] + config["maxlatitude"]) / 2 ) +units=km"
 )
-dx, dy = proj(config["minlongitude"],config["minlatitude"])
-dx = ceil(abs(dx)) + 2; dy = ceil(abs(dy)) + 2; dz = 1; h = 1.0
+min_x_km, min_y_km = proj(config["minlongitude"], config["minlatitude"])
+max_x_km, max_y_km = proj(config["maxlongitude"], config["maxlatitude"])
 
-m, n = proj(config["maxlongitude"], config["maxlatitude"])
-m = convert(Int64,ceil((m + dx)/h)) + 3
-n = convert(Int64, ceil((n + dy)/h)) + 3
+dx = ceil(abs(min_x_km)) + 2; dy = ceil(abs(min_y_km)) + 2; dz = 1; h = 1.0
+m = convert(Int64, ceil((max_x_km + dx)/h)) + 3
+n = convert(Int64, ceil((max_y_km + dy)/h)) + 3
 l = convert(Int64, ceil((config["maxdepth"]+dz)/h)) + 1
 
-## calculate traveltime of stations and events
+config["xlim_km"] = [-dx, m-dx]; config["ylim_km"] = [-dy, n-dy]
+config["zlim_km"] = [-dz, l-dz]; config["h"] = h
 
+## calculate traveltime of stations and events
 vel_p = ones(m,n,l) * 6.0; vel_s = ones(m,n,l) * 3.5 # (54, 61, 22)
 if folder == "anomaly"
     vel_p[20:40, 20:40, 8:14] .= 6.5; vel_s[20:50, 20:40, 8:14] .= 3.8
@@ -77,6 +62,26 @@ elseif folder == "checkerboard"
             end
         end
     end
+end
+if isfile(folder * "/velocity_p.h5")
+    rm(folder * "/velocity_p.h5")
+    rm(folder * "/velocity_s.h5")
+end
+h5write(folder * "/velocity_p.h5", "data", vel_p)
+h5write(folder * "/velocity_s.h5", "data", vel_s)
+config["vel_p"] = 1
+config["vel_s"] = 1
+
+open(folder * "/config.json", "w") do f
+    n = length(config); i = 0
+    println(f, "{")
+    for (key, value) in config
+        i += 1
+        if i < n println(f, "\"$key\": $value,")
+        else println(f, "\"$key\": $value")
+        end
+    end
+    println(f, "}")
 end
 
 ## build stations
